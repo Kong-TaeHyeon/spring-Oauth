@@ -4,9 +4,10 @@
 1. OAuth 란?
 2. 실습
    1. 시큐리티 없는 카카오 로그인
-   2. 카카오 로그인
+   2. 시큐리티 흐름
+   3. 카카오 로그인
 
-### OAuth 란?
+### 1. OAuth 란?
 OAuth("Open Authorization")는 인터넷 사용자들이 비밀번호를 제공하지 않고,
 다른 웹사이트 상의 자신들의 정보에 대해 웹사이트나 애플리케이션의 접근 권한을 부여할 수 있는 공통적인 수단으로서 사용되는,
 접근 위임을 위한 개방형 표준이다.  
@@ -15,7 +16,7 @@ OAuth("Open Authorization")는 인터넷 사용자들이 비밀번호를 제공�
 로그인 또는 회원가입을 하는 것을 쉽게 예로 들 수 있다.
 
 #### 흐름
-![img/img.png](img/img.png)
+![img/img.png](img/kakaoAuthProcess.png)
 즉, 사용자에 대한 정보를 소지하고 있는 서비스 (인증 서버)를 통해, 해당 사용자의 정보를 받아올 수 있는 것!  
 이때, 바로 AccessToken 을 전달하지 않고, 인가 코드를 전달받고 이를 통해 다시 한번 AccessToken 을 받아온다.  
 이후, 해당 AccessToken 을 사용하여 인증 서버로 부터 사용자의 정보등을 조회하는 API 를 사용할 수 있게 된다.  
@@ -96,5 +97,48 @@ OAuth("Open Authorization")는 인터넷 사용자들이 비밀번호를 제공�
 현재는 하나의 컨트롤러 메서드에서 모든 요청을 처리하고 있다. 이러한 이메일을 사용하여 레포지토리를 조회하고 JWT 를 발급하거나, 회원가입 페이지로 redirect 하면 로그인 완성!    
 이를 효율적으로 개선하기 위해 Service 계층을 만들어서 분리하거나 하여 책임을 분리할 수 있을 것 같다!  
   
-(이제, Spring Security 를 사용하면, 어떻게 변화되는지 확인해보도록 하자! + JWT 도 적용하기.)
+
+
+### 2. 실습
+
+#### 시큐리티란?
+
+`Spring Security is a framework that focuses on providing both authentication and authorization to Java applications`  
+
+스프링 시큐리티 공식 문서에 나와있는 소개글이다. 이 글에 따르면, 스프링 시큐리티는 인증 및 인가 기능을 제공해주는 프레임워크이다  
+공식문서에 따라 스프링 시큐리티의 대략적인 구조를 알아보고 실습을 진행해보자!
+
+* `SecurityContextHolder` - The SecurityContextHolder is where Spring Security stores the details of who is authenticated.
+  * 인증된 사용자의 정보를 저장하는 스토어
+
+
+* `SecurityContext` - is obtained from the SecurityContextHolder and contains the Authentication of the currently authenticated user.
+  * SecurityContextHolder 에 포함되며, 이는 현재 인증된 유저의 정보를 포함한다.
+
+
+* `Authentication` - Can be the input to AuthenticationManager to provide the credentials a user has provided to authenticate or the current user from the SecurityContext
+   * 사용자가 인증을 위해 제공한 자격 증명을 제공하기 위한 AuthenticationManager 의 입력이 된다. Authentication 은 다음을 포함한다.
+
+  * `principal`: Identifies the user. When authenticating with a username/password this is often an instance of UserDetails.
+
+  * `credentials`: Often a password. In many cases, this is cleared after the user is authenticated, to ensure that it is not leaked.
+
+  * `authorities`: The GrantedAuthority instances are high-level permissions the user is granted. Two examples are roles and scopes.
+
+
+* `AuthenticationManager` - the API that defines how Spring Security’s Filters perform authentication
+  * 시큐리티 필터가 인증을 수행하는 방법을 정의한 API.
+
+![img.png](img/securityProcess.png)
+
+1. SecurityFilterChain 을 통해, Authentication 객체를 만든다.
+2. Authentication 은 AuthenticationManager 에게 전달되어, 해당 Authentication 객체가 인증이 되었는지 확인한다.
+3. 성공 / 실패에 따라 분기처리 된다.
+4. 성공시, SecurityContextHolder 에 해당 요청에 대한 인증 정보가 저장된다.
+
+대략 이런 흐름인 것 같다.! 아직 크게 감이 잡히지 않지만 실습을 진행하면서 한번 더 정의를 구체화 해봐야겠다.
+
+참고 주소 : https://docs.spring.io/spring-security/reference/servlet/authentication/architecture.html#servlet-authentication-securitycontext
+
+#### 실습1
 
