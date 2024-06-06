@@ -140,5 +140,169 @@ OAuth("Open Authorization")는 인터넷 사용자들이 비밀번호를 제공�
 
 참고 주소 : https://docs.spring.io/spring-security/reference/servlet/authentication/architecture.html#servlet-authentication-securitycontext
 
-#### 실습1
+#### 실습1 : Security With JWT
 
+**SecurityConfig**
+```java
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+    
+    @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() { // security를 적용하지 않을 리소스
+        return web -> web.ignoring()
+                .requestMatchers("/error", "/favicon.ico");
+    }
+
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtFilter jwtFilter) throws Exception {
+        http
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .csrf(AbstractHttpConfigurer::disable)
+
+                .authorizeHttpRequests((authorize) -> {
+                    authorize.requestMatchers("/api/login").permitAll();
+                    authorize.anyRequest().authenticated();
+                })
+
+                .sessionManagement((session) -> {
+                    session.sessionCreationPolicy(SessionCreationPolicy.STATELESS);
+                })
+
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    public UserDetailsService userDetailsService() {
+        UserDetails userDetails = User.withDefaultPasswordEncoder()
+                .username("user")
+                .password("password")
+                .roles("USER")
+                .build();
+
+        return new InMemoryUserDetailsManager(userDetails);
+    }
+
+    @Bean
+    public JwtFilter jwtFilter(JwtService jwtService, UserDetailsService userDetailsService) {
+        return new JwtFilter(jwtService, userDetailsService);
+    }
+}
+```
+1. `jwtFilter`  
+Security Filter 를 커스텀하여 Request Header 에 포함된 토큰을 기반으로 검증(인증)을 시도한다. 
+이를 위해 구현한 JwtFilter 를 빈으로 등록하고 FilterChain 에 추가한다.
+
+2. `userDetailService()`  
+현재는 DB 를 사용하지 않으므로, `임의의 UserDetails (name : username, pw : password, role : USER) 객체`를 생성하여 메모리에 등록하고 
+이를 관리하는 Service (InMemoryUserDetailsManager)를 반환한다.
+
+3. `securityFilterChain`
+먼저, 토큰을 사용할 것이므로 기본 제공하는 폼로그인이 필요 없으므로 `formLogin` 을 비활성화한다. 이후 `httpBasic` 을 비활성화 한다.
+이 httpBasic 인증 요청은 요청 헤더에 사용자의 ID, PW 를 인코딩하여 함께 보내는 방식이라고 한다.
+이후, 로그인을 위한 API 만 인증에 대해 허가하고, 나머지 요청에 대해서는 인증을 요구하도록 설정한다.
+
+**JwtService**
+```java
+@Service
+@Slf4j
+public class JwtService {
+    private static final String secretKey = "secret-key";
+
+    public String createToken(String username) {
+
+        try {
+            return Jwts.builder()
+                    .setSubject("user")
+                    .claim("username", username)
+                    .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))
+                    .signWith(SignatureAlgorithm.HS256, secretKey.getBytes())
+                    .compact();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    public String parse(String token) {
+        Claims claims = Jwts.parser()
+                .setSigningKey(secretKey.getBytes())
+                .parseClaimsJws(token)
+                .getBody();
+
+        return claims.get("username", String.class);
+    }
+}
+```
+1. `CreateToken(String username)`
+주어진 username 정보를 담고 있는 토큰을 생성한다.
+2. `parse(String token)`
+Token 으로부터 username 을 꺼낸다.
+
+**JwtController**
+```java
+@RestController
+public class JwtController {
+
+    private final JwtService jwtService;
+
+    public JwtController(JwtService jwtService) {
+        this.jwtService = jwtService;
+    }
+
+
+    @GetMapping("/api/login")
+    public String login() {
+       String token = jwtService.createToken("user");
+       return token;
+    }
+}
+```
+실제라면, Request 로부터 ID, PW 를 받아 DB에 저장된 User 정보를 사용해서 토큰을 생성했겠지만, 지금은 미리 만들어분 UserDetails 객체의 이름인 user 를 넣어
+직접 토큰을 생성한다. 이를 통해 만들어진 토큰 값을 반환한다.
+
+**JwtFilter**
+```java
+@Slf4j
+public class JwtFilter extends OncePerRequestFilter {
+
+    private final JwtService jwtService;
+    private final UserDetailsService userDetailsService;
+
+    public JwtFilter(JwtService jwtService, UserDetailsService userDetailsService) {
+        this.jwtService = jwtService;
+        this.userDetailsService = userDetailsService;
+    }
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        try {
+            String token = request.getHeader("Authorization").startsWith("Bearer ") ? request.getHeader("Authorization").substring(7) : null;
+            String username = jwtService.parse(token);
+
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+            userDetails.getAuthorities().stream().iterator().forEachRemaining(e -> log.info(e.getAuthority()));
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            filterChain.doFilter(request, response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            log.error(e.getMessage());
+            log.error("Error Catch");
+
+            filterChain.doFilter(request, response);
+        }
+    }
+}
+```
+![img.png](img/postman1.png)
+1. 위의 사진과 같이 헤더에 값이 주어지면 토큰 값을 꺼내어, username 을 얻는다.
+2. 이를 통해 userDetailsService 로부터 이 username 과 일치하는 `userDetails` 객체를 찾는다.
+3. 이후, 해당 userDetails 를 갖는 `Authentication` 객체를 생성하여 `ContextHolder` 에 저장한다.
+4. 다음 필터로 이동한다.
+
+이렇게 Spring Security 를 사용해서 Jwt 로그인을 구현해봤다! 이를 좀 더 보완해서 에러 처리를 하고, DB 까지 사용하는 방식으로 변경해보겠다.
