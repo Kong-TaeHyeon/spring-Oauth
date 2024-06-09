@@ -18,8 +18,15 @@ public class UserController {
         this.userService = userService;
     }
 
-    @PostMapping
+    @PostMapping("/signup")
     public ResponseEntity<User> signUp(@RequestBody UserRequest userRequest) {
         return new ResponseEntity<>(userService.signUp(userRequest.getEmail(), userRequest.getPassword()), HttpStatus.CREATED);
     }
+
+    @PostMapping("signin")
+    public ResponseEntity<String> signIn(@RequestBody UserRequest userRequest) {
+        String token = userService.signIn(userRequest.getEmail(), userRequest.getPassword());
+        return new ResponseEntity<>(token, HttpStatus.OK);
+    }
+
 }
