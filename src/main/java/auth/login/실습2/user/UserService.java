@@ -1,8 +1,9 @@
-package auth.login.실습2;
+package auth.login.실습2.user;
 
+import auth.login.실습2.JwtService2;
 import org.springframework.stereotype.Service;
 
-import java.util.Optional;
+import java.util.List;
 
 @Service
 public class UserService {
@@ -23,5 +24,9 @@ public class UserService {
     public String signIn(String email, String password) {
         User user = userRepository.findByEmailAndPassword(email, password).orElseThrow(()-> new RuntimeException());
         return jwtService.createToken(Long.toString(user.getId()), user.getRole());
+    }
+
+    public List<User> getUsers() {
+        return userRepository.findAll();
     }
 }

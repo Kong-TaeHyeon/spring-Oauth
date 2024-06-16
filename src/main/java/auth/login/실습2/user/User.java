@@ -1,8 +1,7 @@
-package auth.login.실습2;
+package auth.login.실습2.user;
 
 import jakarta.persistence.*;
 import lombok.Getter;
-import org.springframework.security.core.userdetails.UserDetails;
 
 @Entity
 @Getter

@@ -1,8 +1,7 @@
 package auth.login.user;
 
-import auth.login.실습2.UserRepository;
-import auth.login.실습2.UserService;
-import org.junit.jupiter.api.Test;
+import auth.login.실습2.user.UserRepository;
+import auth.login.실습2.user.UserService;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
 

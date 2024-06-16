@@ -1,8 +1,8 @@
 package auth.login;
 
 
-import auth.login.실습1.JwtFilter;
 import auth.login.실습1.JwtService;
+import auth.login.실습2.JwtFilter;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -24,6 +24,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
+    private JwtFilter jwtFilter;
+
+    public SecurityConfig(JwtFilter jwtFilter) {
+        this.jwtFilter = jwtFilter;
+    }
 
 
     @Bean
@@ -40,9 +45,12 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
 
                 .authorizeHttpRequests((authorize) -> {
-                    authorize.requestMatchers("/api/user/**").permitAll();
+                    authorize.requestMatchers("/api/user/signin", "/api/user/signup").permitAll();
                     authorize.anyRequest().authenticated();
                 })
+
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+
 
                 .sessionManagement((session) -> {
                     session.sessionCreationPolicy(SessionCreationPolicy.STATELESS);
