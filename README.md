@@ -306,3 +306,103 @@ public class JwtFilter extends OncePerRequestFilter {
 4. 다음 필터로 이동한다.
 
 이렇게 Spring Security 를 사용해서 Jwt 로그인을 구현해봤다! 이를 좀 더 보완해서 에러 처리를 하고, DB 까지 사용하는 방식으로 변경해보겠다.
+
+#### 실습2 : Security With JWT + DB
+
+**User Entity**  
+```java
+@Entity
+@Getter
+public class User  {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column
+    private String email;
+
+    @Column
+    private String password;
+
+    @Column
+    private String role;
+
+    public User() {}
+
+    public User(String email, String password,String role) {
+        this.email = email;
+        this.password = password;
+        this.role = role;
+    }
+}
+```
+먼저, 실제 사용자의 정보를 저장할 User Entity 를 작성하였다.   
+따라서 로그인 시, DB에 접근하여 해당 User 가 존재하는지 확인 후, User 가 존재한다면, JWT Token 을 발급하게 되는 것이다.
+
+```java
+@Service
+public class JwtService2 {
+    private static final String secretKey = "secret-key";
+
+    public String createToken(String userId, String role) {
+        return Jwts.builder()
+                .claim("username", userId)
+                .claim("role", role)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))
+                .signWith(SignatureAlgorithm.HS256, secretKey.getBytes())
+                .compact();
+    }
+
+    public Claims getClaim(String token) {
+        return Jwts.parser().setSigningKey(secretKey.getBytes()).parseClaimsJws(token).getBody();
+    }
+
+}
+```
+
+토큰에는 UserID 와 Role 을 담는다. (유효성에 대해서는 체크하지 않음 !)
+
+```java
+@Override
+protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    log.info("URI : {}", request.getRequestURI());
+    if (list.contains(request.getRequestURI())) {
+        filterChain.doFilter(request, response);
+        return;
+    }
+
+    String token = request.getHeader("Authorization").startsWith("Bearer ") ? request.getHeader("Authorization").substring(7) : null;
+    log.info("token: {}", token);
+    log.info("User ID : {}", jwtService2.getClaim(token).get("username").toString());
+    log.info("User Role : {}", jwtService2.getClaim(token).get("role").toString());
+
+    if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        UserDetails userDetails= customUserDetailsService.loadUserByUsername(jwtService2.getClaim(token).get("username").toString());
+        log.info("userDetails Name : {} ", userDetails.getUsername());
+        log.info("userDetails Role : {} ", userDetails.getAuthorities());
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
+    filterChain.doFilter(request, response);
+}
+
+```
+위는 JWTFilter 이며, 토큰을 추출하여 해당 토큰의 username 과 role 을 얻은 후, 이를 사용하여 UserDetails 를 생성한다.
+UserDetails 를 사용하여 Authentication 객체를 생성하고 이를 ContextHolder 에 저장한다.
+
+```java
+    @Override
+    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        Long userId = Long.parseLong(username);
+        User user= userRepository.findById(userId).orElseThrow(() -> new RuntimeException());
+        return new CustomUserDetails(user);
+    }
+```
+이는 UserDetailsService 를 구현한 CustomUserDetailsService 이며, 여기서는 매 Filter 마다 DB에 접근하고 있는데,
+애초에 Token 을 생성할 때, UserDetails 를 생성할 수 있다면 굳이 매 요청마다 접근할 필요는 없을 것 같다!
+
+이렇게, DB 까지 연결하여 Security + JWT 를 구현해봤다.  
+이제 이 모든걸 조합해서, Kakao Login 을 구현해보자!
+---
