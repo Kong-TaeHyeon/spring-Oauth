@@ -17,7 +17,7 @@ import java.util.Arrays;
 import java.util.List;
 
 @Slf4j
-@Component
+//@Component
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
     private final JwtService2 jwtService2;

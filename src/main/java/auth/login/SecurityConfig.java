@@ -1,22 +1,17 @@
 package auth.login;
 
 
-import auth.login.실습1.JwtService;
-import auth.login.실습2.JwtFilter;
-import lombok.AllArgsConstructor;
-import lombok.RequiredArgsConstructor;
+
+import auth.login.실습3.CustomOAuth2UserService;
+import auth.login.실습3.JwtFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
+
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -24,10 +19,12 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private JwtFilter jwtFilter;
+    private auth.login.실습3.JwtFilter jwtFilter;
+    private CustomOAuth2UserService customOAuth2UserService;
 
-    public SecurityConfig(JwtFilter jwtFilter) {
+    public SecurityConfig(JwtFilter jwtFilter, CustomOAuth2UserService customOAuth2UserService) {
         this.jwtFilter = jwtFilter;
+        this.customOAuth2UserService = customOAuth2UserService;
     }
 
 
@@ -48,6 +45,8 @@ public class SecurityConfig {
                     authorize.requestMatchers("/api/user/signin", "/api/user/signup").permitAll();
                     authorize.anyRequest().authenticated();
                 })
+
+                .oauth2Login(oauth -> oauth.userInfoEndpoint(c -> c.userService(customOAuth2UserService)))
 
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 
