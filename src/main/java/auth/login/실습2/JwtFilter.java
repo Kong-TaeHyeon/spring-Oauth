@@ -25,7 +25,8 @@ public class JwtFilter extends OncePerRequestFilter {
 
     List<String> list = Arrays.asList(
             "/api/user/signup",
-            "/api/user/signin"
+            "/api/user/signin",
+            "/api/"
     ) ;
 
     @Override

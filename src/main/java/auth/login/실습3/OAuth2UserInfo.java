@@ -16,7 +16,7 @@ public record OAuth2UserInfo(
     
     private static OAuth2UserInfo ofKaKao(Map<String, Object> attributes) {
         Map<String, Object> account = (Map<String, Object>) attributes.get("kakao_account");
-        Map<String, Object> profile = (Map<String, Object>) attributes.get("profile");
+        Map<String, Object> profile = (Map<String, Object>) account.get("profile");
 
         return new OAuth2UserInfo(
                 (String) profile.get("nickname"),

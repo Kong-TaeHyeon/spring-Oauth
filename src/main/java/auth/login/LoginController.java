@@ -10,8 +10,8 @@ import java.io.IOException;
 
 @RestController
 public class LoginController {
-    @Value("${kakao.key}")
-    private String kakaoApiKey;
+
+    private String kakaoApiKey = "123";
 
     @GetMapping("/oauth2/kakao")
     public void redirectKaKaoLogin(HttpServletResponse response) throws IOException {

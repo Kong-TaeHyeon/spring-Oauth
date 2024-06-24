@@ -3,7 +3,9 @@ package auth.login;
 
 
 import auth.login.실습3.CustomOAuth2UserService;
-import auth.login.실습3.JwtFilter;
+import auth.login.실습3.OAuth2FailureHandler;
+import auth.login.실습3.OAuth2SuccessHandler;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -12,26 +14,28 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
-    private auth.login.실습3.JwtFilter jwtFilter;
-    private CustomOAuth2UserService customOAuth2UserService;
+    private final auth.login.실습3.JwtFilter jwtFilter;
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2FailureHandler oAuth2FailureHandler;
 
-    public SecurityConfig(JwtFilter jwtFilter, CustomOAuth2UserService customOAuth2UserService) {
-        this.jwtFilter = jwtFilter;
-        this.customOAuth2UserService = customOAuth2UserService;
-    }
+
 
 
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() { // security를 적용하지 않을 리소스
         return web -> web.ignoring()
-                .requestMatchers("/error", "/favicon.ico");
+                .requestMatchers("/error", "/favicon.ico", "/");
     }
 
     @Bean
@@ -40,21 +44,32 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .csrf(AbstractHttpConfigurer::disable)
+                .cors(AbstractHttpConfigurer::disable)
+                .logout(AbstractHttpConfigurer::disable)
+                .sessionManagement((session) ->
+                    session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
 
                 .authorizeHttpRequests((authorize) -> {
-                    authorize.requestMatchers("/api/user/signin", "/api/user/signup").permitAll();
-                    authorize.anyRequest().authenticated();
+                    authorize.requestMatchers("/auth/success/**","/auth/success","/login/oauth2/code/kakao","/api/v3","/api/user/signin", "/api/user/signup").permitAll()
+                    .anyRequest().authenticated();
                 })
 
-                .oauth2Login(oauth -> oauth.userInfoEndpoint(c -> c.userService(customOAuth2UserService)))
+                .oauth2Login(oauth -> oauth.userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+                        .successHandler(oAuth2SuccessHandler)
+                        .failureHandler(oAuth2FailureHandler)
+                )
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
 
 
-                .sessionManagement((session) -> {
-                    session.sessionCreationPolicy(SessionCreationPolicy.STATELESS);
-                });
 
         return http.build();
+    }
+
+    @Bean
+    public BCryptPasswordEncoder bCryptPasswordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 }
