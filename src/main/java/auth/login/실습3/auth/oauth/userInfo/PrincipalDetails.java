@@ -1,5 +1,6 @@
-package auth.login.실습3;
+package auth.login.실습3.auth.oauth.userInfo;
 
+import auth.login.실습3.member.Member;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;

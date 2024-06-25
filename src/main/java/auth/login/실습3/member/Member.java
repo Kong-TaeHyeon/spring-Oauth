@@ -1,4 +1,4 @@
-package auth.login.실습3;
+package auth.login.실습3.member;
 
 import jakarta.persistence.*;
 import lombok.Builder;

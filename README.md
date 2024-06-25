@@ -406,3 +406,130 @@ UserDetails 를 사용하여 Authentication 객체를 생성하고 이를 Contex
 이렇게, DB 까지 연결하여 Security + JWT 를 구현해봤다.  
 이제 이 모든걸 조합해서, Kakao Login 을 구현해보자!
 ---
+#### 실습3
+
+**CustomOAuth2UserService**  
+스프링 시큐리티의 OAuth2 를 사용하면, 실습1에서 보여줬던 인가 코드를 받은 후, Server(KaKao)로 부터 토큰을 받아와 유저 정보를 가져오는 과정을 Security 가 대신 처리해준다.  
+따라서 우리는 가져온 정보를 사용하여 유저정보를 담은 객체(OAuth2UserInfo)를 생성하고 이를 통해 JWT Token 을 발급해주기만 하면 된다.
+```java
+public class CustomOAuth2UserService extends DefaultOAuth2UserService {
+
+    private final MemberRepository memberRepository;
+
+    @Transactional
+    @Override
+    public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
+
+        Map<String, Object> oAuth2UserAttributes = super.loadUser(userRequest).getAttributes();
+        String registrationId = userRequest.getClientRegistration().getRegistrationId();
+
+        String userNameAttributeName = userRequest.getClientRegistration().getProviderDetails()
+                .getUserInfoEndpoint().getUserNameAttributeName();
+
+        OAuth2UserInfo oAuth2UserInfo = OAuth2UserInfo.of(registrationId, oAuth2UserAttributes);
+
+        Member member = getOrSave(oAuth2UserInfo);
+
+        return new PrincipalDetails(member, oAuth2UserAttributes, userNameAttributeName);
+    }
+
+    public Member getOrSave(OAuth2UserInfo oAuth2UserInfo) {
+        Member member = memberRepository.findByEmail(oAuth2UserInfo.email())
+                .orElseGet(oAuth2UserInfo::toEntity);
+        return memberRepository.save(member);
+    }
+}
+```
+`registrationId` 에는 제공자의 아이디가 담긴다. (kakao / googl / naver . . .) 제공자에 따라 정보를 주는 형식이 다르기 때문에,  
+이를 기반으로 정보를 받아와 `OAuth2UserInfo` 를 생성한다. 이렇게 생성된 객체를 사용하여 PrincipalDetails 객체를 만들어 Return 한다.
+이렇게 성공적으로 Return 이 되면, `OAuth2SuccessHandler` 가 실행된다. 
+
+**OAuth2SuccessHandler**  
+```java
+@Component
+@RequiredArgsConstructor
+@Slf4j
+public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
+
+    private final JWTService jwtService;
+
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+        String token = jwtService.createToken(authentication);
+
+        // 쿠키를 사용해서 토큰 전달.
+        Cookie cookie = new Cookie("token", token);
+        response.addCookie(cookie);
+
+        // URL 을 사용해서 토큰 전달.
+        String redirectUrl = UriComponentsBuilder.fromUriString("/auth/success")
+                .queryParam("accessToken", token)
+                .build().toUriString();
+
+        response.sendRedirect(redirectUrl);
+    }
+}
+```
+현재는 프론트 페이지가 없으므로, redirectURL 에 쿼리스트링을 사용하여 토큰 값을 함께 전달하는 방식을 사용하였다.  
+이렇게 전달된 토큰을 헤더에 넣으면, 권한이 필요한 URI에 대해서는 JWT Filter 를 거치며 토큰 검증하게 될 것이다.
+
+**PrincipalDetails**
+```java
+public class PrincipalDetails  implements OAuth2User, UserDetails {
+
+    private Member member;
+    private Map<String, Object> attributes;
+    private String attributeKey;
+
+    public PrincipalDetails(Member member, Map<String, Object> attributes, String attributeKey) {
+        this.member = member;
+        this.attributes = attributes;
+        this.attributeKey = attributeKey;
+    }
+
+    @Override
+    public String getPassword() {
+        return "";
+    }
+
+    @Override
+    public String getUsername() {
+        return member.getId().toString();
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return true;
+    }
+
+    @Override
+    public Map<String, Object> getAttributes() {
+        return attributes;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return Collections.singletonList(
+                new SimpleGrantedAuthority(member.getRole())
+        );
+    }
+```
+OAuth2UserInfo 를 기반으로 OAuth2User 객체를 생성하기 위해 커스텀한 객체이다. 이는 UserDetails 도 함께 구현하고 있으므로,  
+일반 로그인 사용 시에도 이를 생성하여 Authentication 객체를 만든다면, 쉽게 사용할 수 있을 것이다.  
+
+부족하지만, 이렇게 OAuth 를 구현하며 조금은 Security 에 대한 이해가 생긴 것 같다.

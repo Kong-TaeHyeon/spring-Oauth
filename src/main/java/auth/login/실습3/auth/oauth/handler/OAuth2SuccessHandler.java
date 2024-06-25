@@ -1,9 +1,10 @@
-package auth.login.실습3;
+package auth.login.실습3.auth.oauth.handler;
 
 
 
-import auth.login.실습2.JwtService2;
+import auth.login.실습3.auth.jwt.JWTService;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -24,12 +25,13 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
-        String userId = authentication.getName();
+        String token = jwtService.createToken(authentication);
 
-        log.info("userId = {}", userId);
+        // 쿠키를 사용해서 토큰 전달.
+        Cookie cookie = new Cookie("token", token);
+        response.addCookie(cookie);
 
-
-        String token = jwtService.createToken(authentication, "ROLE_ADMIN");
+        // URL 을 사용해서 토큰 전달.
         String redirectUrl = UriComponentsBuilder.fromUriString("/auth/success")
                 .queryParam("accessToken", token)
                 .build().toUriString();

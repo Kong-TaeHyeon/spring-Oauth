@@ -2,9 +2,11 @@ package auth.login;
 
 
 
-import auth.login.실습3.CustomOAuth2UserService;
-import auth.login.실습3.OAuth2FailureHandler;
-import auth.login.실습3.OAuth2SuccessHandler;
+import auth.login.실습3.auth.CustomAuthenticationEntryPoint;
+import auth.login.실습3.auth.jwt.JwtFilter;
+import auth.login.실습3.auth.oauth.service.CustomOAuth2UserService;
+import auth.login.실습3.auth.oauth.handler.OAuth2FailureHandler;
+import auth.login.실습3.auth.oauth.handler.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,7 +26,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final auth.login.실습3.JwtFilter jwtFilter;
+    private final JwtFilter jwtFilter;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final OAuth2FailureHandler oAuth2FailureHandler;
@@ -60,9 +62,8 @@ public class SecurityConfig {
                         .successHandler(oAuth2SuccessHandler)
                         .failureHandler(oAuth2FailureHandler)
                 )
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
-
-
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+                .exceptionHandling((exception) -> exception.authenticationEntryPoint(new CustomAuthenticationEntryPoint()));
 
 
         return http.build();

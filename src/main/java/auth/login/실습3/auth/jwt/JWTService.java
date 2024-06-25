@@ -1,15 +1,13 @@
-package auth.login.실습3;
+package auth.login.실습3.auth.jwt;
 
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.*;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Component;
-import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.Collections;
 import java.util.Date;
@@ -18,9 +16,13 @@ import java.util.stream.Collectors;
 
 @Component
 public class JWTService {
-    private static final String secretKey = "secret-key";
 
-    public String createToken(Authentication authentication, String role) {
+    private static final String secretKey = "secret-key";
+    private static final long TOKEN_EXPIRE_TIME = 1000 * 60 * 30L;
+
+    public String createToken(Authentication authentication) {
+        Date now = new Date();
+        Date expireDate = new Date(now.getTime() + TOKEN_EXPIRE_TIME);
 
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
@@ -29,8 +31,8 @@ public class JWTService {
         return Jwts.builder()
                 .setSubject(authentication.getName())
                 .claim("role", authorities)
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))
+                .setIssuedAt(now)
+                .setExpiration(expireDate)
                 .signWith(SignatureAlgorithm.HS256, secretKey.getBytes())
                 .compact();
     }
@@ -43,6 +45,29 @@ public class JWTService {
 
         User principal = new User(claims.getSubject(), "", authorities);
         return new UsernamePasswordAuthenticationToken(principal, token, authorities);
+    }
+
+    public boolean validateToken(String token) {
+        if (!StringUtils.hasText(token)) {
+            return false;
+        }
+
+        Claims claims = parseClaims(token);
+        return claims.getExpiration().after(new Date());
+    }
+
+    private Claims parseClaims(String token) {
+        try {
+            return Jwts.parser().setSigningKey(secretKey).parseClaimsJws(token).getBody();
+        } catch (ExpiredJwtException e) {
+            return e.getClaims();
+        } catch (UnsupportedJwtException e) {
+            throw new RuntimeException("Token is not supported");
+        } catch (SecurityException e) {
+            throw new RuntimeException("Security Exception Error");
+        } catch (MalformedJwtException e) {
+            throw new RuntimeException("Malformed token");
+        }
     }
 
 

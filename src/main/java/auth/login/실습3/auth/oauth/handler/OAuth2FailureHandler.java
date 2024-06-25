@@ -1,4 +1,4 @@
-package auth.login.실습3;
+package auth.login.실습3.auth.oauth.handler;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,8 +16,8 @@ public class OAuth2FailureHandler implements AuthenticationFailureHandler {
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
         exception.printStackTrace();
-        log.info(request.getRequestURI());
-        log.info(exception.getMessage());
+
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.getWriter().write("Social Login Fail");
     }
 }

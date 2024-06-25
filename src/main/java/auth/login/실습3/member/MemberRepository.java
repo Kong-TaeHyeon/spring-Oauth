@@ -1,4 +1,4 @@
-package auth.login.실습3;
+package auth.login.실습3.member;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;

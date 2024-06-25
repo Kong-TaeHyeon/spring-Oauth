@@ -1,4 +1,6 @@
-package auth.login.실습3;
+package auth.login.실습3.auth.oauth.userInfo;
+
+import auth.login.실습3.member.Member;
 
 import java.util.Map;
 
@@ -29,7 +31,7 @@ public record OAuth2UserInfo(
         return Member.builder()
                 .name(name)
                 .email(email)
-                .role("ROLE_User")
+                .role("ROLE_GUEST")
                 .build();
     }
 
